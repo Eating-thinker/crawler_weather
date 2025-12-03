@@ -37,6 +37,13 @@ streamlit run "c:\Users\user\Desktop\新增資料夾\weather_app.py"
 
 啟動後，開啟 `http://localhost:8501` 即可看見應用畫面。
 
+## 線上 Demo
+
+如果你想直接觀看線上示範，可以到已部署的 Streamlit 應用：
+
+https://crawlerweather-xfcmdbgxjutfqfwcbex3r3.streamlit.app/
+
+
 ## 功能說明
 - 自動將輸入的 `台` 轉成 `臺` 以配合中央氣象署 API 的資料格式。
 - 擷取各區 `天氣狀況`、`降水機率`、`最高溫度`、`最低溫度`、`舒適度` 等元素。
