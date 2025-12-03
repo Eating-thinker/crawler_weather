@@ -3,6 +3,9 @@ import requests
 import json
 import urllib3
 import pandas as pd
+from datetime import datetime
+import sqlite3
+import os
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -12,6 +15,63 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # API 配置
 API_KEY = "CWA-118F0D40-7F13-4BA2-B316-CC5767CA0CC6"
 API_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001"
+
+# SQLite DB 路徑
+DB_PATH = os.path.join(os.path.dirname(__file__), "data.db")
+
+
+def init_db():
+    """初始化 SQLite 資料庫與表格"""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS weather (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                county TEXT,
+                normalized_name TEXT,
+                fetched_at TEXT,
+                data_json TEXT
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def save_weather_to_db(county_name, details):
+    """將抓到的天氣資料存入 SQLite"""
+    if not details:
+        return
+    normalized = county_name.replace("台", "臺")
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO weather (county, normalized_name, fetched_at, data_json) VALUES (?, ?, ?, ?)",
+            (county_name, normalized, datetime.now().isoformat(), json.dumps(details, ensure_ascii=False))
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_recent_weather(county_name=None, limit=20):
+    """取得最近儲存的天氣紀錄（可選縣市過濾）"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        cur = conn.cursor()
+        if county_name:
+            cur.execute("SELECT * FROM weather WHERE county=? ORDER BY id DESC LIMIT ?", (county_name, limit))
+        else:
+            cur.execute("SELECT * FROM weather ORDER BY id DESC LIMIT ?", (limit,))
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
 
 
 def get_weather_details(county_name):
@@ -243,6 +303,8 @@ def create_weather_table(weather_data):
 
 def main():
     st.set_page_config(page_title="天氣預報查詢系統", layout="wide")
+    # 初始化資料庫
+    init_db()
     st.title("🌤️ 中央氣象署天氣預報查詢系統")
     
     # 側邊欄輸入
@@ -271,8 +333,8 @@ def main():
         if weather_data:
             st.success(f"✅ 成功取得 {selected_county} 的天氣資訊！")
             
-            # 建立標籤頁
-            tab1, tab2, tab3, tab4 = st.tabs(["📊 預報概覽", "🌡️ 溫度趨勢", "☔ 降水機率", "📋 詳細表格"])
+            # 建立標籤頁（增加儲存紀錄分頁）
+            tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 預報概覽", "🌡️ 溫度趨勢", "☔ 降水機率", "📋 詳細表格", "💾 儲存紀錄"])
             
             with tab1:
                 st.subheader("預報摘要")
@@ -335,6 +397,38 @@ def main():
                     st.dataframe(weather_table, width='stretch')
                 else:
                     st.warning("無法生成預報表格")
+            
+            with tab5:
+                st.subheader("儲存紀錄（資料庫）")
+                # 儲存本次查詢到資料庫
+                try:
+                    save_weather_to_db(selected_county, weather_data)
+                    st.success("已將本次資料存入本機資料庫")
+                except Exception as e:
+                    st.error(f"儲存資料時發生錯誤: {e}")
+
+                # 顯示最近的紀錄供檢視
+                records = get_recent_weather(selected_county, limit=50)
+                if records:
+                    df_rec = pd.DataFrame([{"id": r['id'], "fetched_at": r['fetched_at'], "county": r['county']} for r in records])
+                    st.table(df_rec)
+
+                    rec_ids = [r['id'] for r in records]
+                    sel_id = st.selectbox("選擇紀錄 ID 以檢視詳細資料", options=rec_ids)
+                    sel_row = next((r for r in records if r['id'] == sel_id), None)
+                    if sel_row:
+                        try:
+                            stored = json.loads(sel_row['data_json'])
+                            st.json(stored)
+                            st.markdown("---")
+                            st.subheader("該紀錄的表格檢視")
+                            tbl = create_weather_table(stored)
+                            if tbl is not None:
+                                st.dataframe(tbl, width='stretch')
+                        except Exception as e:
+                            st.error(f"載入紀錄錯誤: {e}")
+                else:
+                    st.info("目前沒有儲存的紀錄")
         
         else:
             st.error(f"❌ 無法取得 {selected_county} 的天氣資訊，請稍後再試")
