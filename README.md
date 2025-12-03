@@ -3,8 +3,8 @@
 中央氣象署天氣資料爬蟲與 Streamlit Demo
 
 ## 內容
-- `weather_scraper.py`: 命令列爬蟲腳本，支援輸入縣市並顯示多項天氣資訊。
-- `weather_app.py`: Streamlit 應用，提供互動式 UI、圖表與表格來視覺化縣市天氣預報。
+- `weather_crawler.py`: 命令列爬蟲腳本，支援輸入縣市並顯示多項天氣資訊。
+- `weather_streamlit.py`: Streamlit 應用，提供互動式 UI、圖表與表格來視覺化縣市天氣預報。
 - `requirements.txt`: 程式所需 Python 套件。
 
 ## 快速開始
@@ -26,13 +26,13 @@ pip install -r requirements.txt
 3. 以命令列執行爬蟲（非 GUI）：
 
 ```powershell
-python weather_scraper.py
+python weather_crawler.py
 ```
 
 4. 啟動 Streamlit Demo（在瀏覽器檢視）：
 
 ```powershell
-streamlit run "c:\Users\user\Desktop\新增資料夾\weather_app.py"
+streamlit run "c:\Users\user\Desktop\新增資料夾\weather_streamlit.py"
 ```
 
 啟動後，開啟 `http://localhost:8501` 即可看見應用畫面。
